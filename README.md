@@ -69,7 +69,7 @@ Verifica con `snmpget -v2c -c TU_COMUNIDAD IP 1.3.6.1.4.1.2021.11.11.0`. Luego m
 - Se retiró el hash de contraseña escrito a mano del SQL de semilla: el admin se crea desde `.env` al primer arranque.
 - `dispositivo.estado_actual` = ACTIVO / ALERTA / CRÍTICO (calculado por el motor).
 
-## Limitaciones conocidas (dilas con honestidad en tu defensa)
+## Consideraciones Técnicas y Trabajo Futuro
 - Uptime = % de muestras disponibles (aproximación por muestreo, precisión ligada a la frecuencia de escaneo).
 - SNMP solo v2c (como declara tu alcance); IPv4 únicamente (columna `VARCHAR(15)`).
 - Cierre manual de una alerta con la falla aún activa: el motor la reabre en el siguiente ciclo.
