@@ -62,7 +62,7 @@ La simulación usa IPs `192.0.2.x` (RFC 5737, nunca responden): equivale a apaga
 En un servidor Linux a monitorear: `apt install snmpd`, en `/etc/snmp/snmpd.conf` define `rocommunity TU_COMUNIDAD IP_DEL_MONITOR` y `systemctl restart snmpd`.
 Verifica con `snmpget -v2c -c TU_COMUNIDAD IP 1.3.6.1.4.1.2021.11.11.0`. Luego marca el nodo con SNMP habilitado en el dashboard.
 
-## Cambios respecto al esquema del Hito 2 (actualiza tu documento)
+## Cambios respecto al esquema del Hito 2 
 - Nueva tabla **`auditoria_acceso`** (módulo "Auditoría de Acceso" de tu EDT) → el modelo queda en 7 tablas.
 - `dispositivo`: `snmp_habilitado`, `url_http`. `metrica_historico`: `interfaces_down`, `http_status`, `disponible` (base del Uptime).
 - Parámetros de `regla_umbral`: además de latencia/CPU/RAM, `interfaces_down` y `disponibilidad` (regla crítica creada automáticamente por nodo).
