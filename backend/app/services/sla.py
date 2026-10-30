@@ -16,13 +16,14 @@ def mttr_segundos(duraciones: list[float]) -> int | None:
     return round(sum(duraciones) / len(duraciones)) if duraciones else None
 
 
-async def uptime_por_dispositivo(db: AsyncSession, desde) -> dict[int, tuple[int, int, float | None, int | None]]:
-    """{disp_id: (muestras, disponibles, lat_prom, lat_max)}"""
+async def uptime_por_dispositivo(db: AsyncSession, desde) -> dict[int, tuple]:
+    """{disp_id: (muestras, disponibles, lat_prom, lat_max, primera_muestra, ultima_muestra)}"""
     q = (select(MetricaHistorico.dispositivo_id, func.count(MetricaHistorico.id),
                 func.sum(case((MetricaHistorico.disponible.is_(True), 1), else_=0).cast(Integer)),
-                func.avg(MetricaHistorico.latencia_ms), func.max(MetricaHistorico.latencia_ms))
+                func.avg(MetricaHistorico.latencia_ms), func.max(MetricaHistorico.latencia_ms),
+                func.min(MetricaHistorico.timestamp), func.max(MetricaHistorico.timestamp))
          .where(MetricaHistorico.timestamp >= desde).group_by(MetricaHistorico.dispositivo_id))
-    return {r[0]: (r[1], int(r[2] or 0), r[3], r[4]) for r in (await db.execute(q)).all()}
+    return {r[0]: (r[1], int(r[2] or 0), r[3], r[4], r[5], r[6]) for r in (await db.execute(q)).all()}
 
 
 async def duraciones_resueltas(db: AsyncSession, desde, disp_id: int | None = None) -> list[float]:
@@ -38,21 +39,24 @@ async def reporte_sla(db: AsyncSession, dias: int) -> dict:
     uptimes = await uptime_por_dispositivo(db, desde)
     filas = []
     for d in (await db.scalars(select(Dispositivo).order_by(Dispositivo.nombre))).all():
-        muestras, ok, lat_prom, lat_max = uptimes.get(d.id, (0, 0, None, None))
+        muestras, ok, lat_prom, lat_max, t0, t1 = uptimes.get(d.id, (0, 0, None, None, None, None))
         up = porcentaje_uptime(ok, muestras)
+        # Downtime sobre el período REALMENTE observado (no se proyecta a toda la ventana)
+        observado = (t1 - t0).total_seconds() if t0 and t1 else 0
         n_inc = await db.scalar(select(func.count(AlertaLog.id)).where(
             AlertaLog.dispositivo_id == d.id, AlertaLog.fecha_hora_creacion >= desde)) or 0
         filas.append({
             "dispositivo_id": d.id, "nodo": d.nombre, "ip": d.ip, "tipo": d.tipo_dispositivo,
             "muestras": muestras, "uptime_pct": up,
-            "downtime_estimado_s": None if up is None else round((100 - up) / 100 * dias * 86400),
+            "periodo_observado_s": round(observado),
+            "downtime_estimado_s": None if up is None else round((100 - up) / 100 * observado),
             "latencia_prom_ms": None if lat_prom is None else round(float(lat_prom), 1),
             "latencia_max_ms": lat_max, "incidentes": n_inc,
             "mttr_s": mttr_segundos(await duraciones_resueltas(db, desde, d.id)),
             "cumple_sla": None if up is None else up >= settings.sla_objetivo_pct,
         })
-    tot = sum(m for m, *_ in uptimes.values())
-    ok_tot = sum(o for _, o, *_ in uptimes.values())
+    tot = sum(v[0] for v in uptimes.values())
+    ok_tot = sum(v[1] for v in uptimes.values())
     return {"dias": dias, "sla_objetivo_pct": settings.sla_objetivo_pct,
             "uptime_global_pct": porcentaje_uptime(ok_tot, tot),
             "mttr_global_s": mttr_segundos(await duraciones_resueltas(db, desde)), "nodos": filas}
