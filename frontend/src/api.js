@@ -32,4 +32,6 @@ export const fmtDur = (s) => {
   if (s < 3600) return `${Math.floor(s / 60)} min ${Math.round(s % 60)} s`;
   return `${Math.floor(s / 3600)} h ${Math.floor((s % 3600) / 60)} min`;
 };
-export const fmtFecha = (iso) => (iso ? new Date(iso).toLocaleString("es-CL") : "—");
+// El backend guarda UTC sin zona: se agrega "Z" para mostrar la hora local correcta.
+export const fmtFecha = (iso) =>
+  iso ? new Date(/[zZ]$|[+-]\d\d:\d\d$/.test(iso) ? iso : iso + "Z").toLocaleString("es-CL") : "—";

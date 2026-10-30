@@ -46,3 +46,7 @@ def test_estado():
     assert calcular_estado(True, ["Alta"]) == "ALERTA"
     assert calcular_estado(True, ["Alta", "Crítica"]) == "CRÍTICO"
     assert calcular_estado(False, []) == "CRÍTICO"
+    
+def test_desactivar_regla_cierra_su_alerta_abierta():
+    d = decidir([regla(1, "latencia_ms", 10, hab=False)], {1}, Resultado(True, latencia_ms=999), "A", "1.1.1.1")
+    assert d.resolver == [1] and d.abrir == []
