@@ -42,20 +42,22 @@ def canal_smtp_configurado() -> bool:
     return bool(settings.smtp_host and settings.smtp_to)
 
 
-async def notificar(texto: str, asunto: str = "Alerta de monitoreo") -> bool:
-    """Nunca lanza excepciones: una falla de mensajería no debe detener el monitoreo."""
+async def notificar(texto: str, asunto: str = "Alerta de monitoreo") -> str | None:
+    """Nunca lanza excepciones. Retorna el canal usado ('Telegram', 'SMTP') o None si fallaron."""
     if canal_telegram_configurado():
         try:
             await _telegram(texto)
-            return True
+            return "Telegram"
         except Exception as e:  # noqa: BLE001
             log.warning("Telegram falló (%s); intentando SMTP", type(e).__name__)
+            
     if canal_smtp_configurado():
         try:
             await asyncio.to_thread(_smtp_sync, asunto, texto)
-            return True
+            return "SMTP"
         except Exception as e:  # noqa: BLE001
             log.error("SMTP falló: %s", e)
     else:
         log.info("Sin canal de notificación configurado. Mensaje: %s", texto)
-    return False
+        
+    return None

@@ -81,6 +81,10 @@ class AlertaLog(Base):
     fecha_hora_creacion: Mapped[datetime] = mapped_column(DateTime, default=ahora)
     fecha_hora_resolucion: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     estado_alerta: Mapped[str] = mapped_column(String(50), default="ABIERTA")
+    
+
+    fecha_hora_envio: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    canal_envio: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
 
 class AuditoriaAcceso(Base):

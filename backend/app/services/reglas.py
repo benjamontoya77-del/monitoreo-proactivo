@@ -36,15 +36,17 @@ def decidir(reglas, ids_abiertas: set[int], r: Resultado, nombre: str, ip: str) 
     y solo notifica en las transiciones (abrir / resolver)."""
     dec = Decision()
     for regla in reglas:
-        if not regla.habilitada:
-            continue
-        violada, valor = evaluar(regla.parametro, regla.valor_umbral, r)
-        if violada is None:
-            continue
-        if violada and regla.id not in ids_abiertas:
-            dec.abrir.append((regla, describir(regla.parametro, regla.valor_umbral, valor, nombre, ip)))
-        elif not violada and regla.id in ids_abiertas:
-            dec.resolver.append(regla.id)
+            if not regla.habilitada:
+                if regla.id in ids_abiertas:      # regla desactivada: se cierra su alerta
+                    dec.resolver.append(regla.id)
+                continue
+            violada, valor = evaluar(regla.parametro, regla.valor_umbral, r)
+            if violada is None:
+                continue
+            if violada and regla.id not in ids_abiertas:
+                dec.abrir.append((regla, describir(regla.parametro, regla.valor_umbral, valor, nombre, ip)))
+            elif not violada and regla.id in ids_abiertas:
+                dec.resolver.append(regla.id)
     return dec
 
 

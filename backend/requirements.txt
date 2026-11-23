@@ -11,3 +11,5 @@ httpx==0.28.1
 # --- pruebas ---
 pytest==8.3.4
 aiosqlite==0.20.0
+openpyxl==3.1.5
+slowapi==0.1.9

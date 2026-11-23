@@ -1,3 +1,5 @@
+from slowapi.errors import RateLimitExceeded
+from slowapi import _rate_limit_exceeded_handler
 import logging
 from contextlib import asynccontextmanager
 
@@ -49,6 +51,10 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Sistema de Monitoreo Proactivo y Alerta Temprana", version="1.0.0", lifespan=lifespan)
+# Conectar el limitador creado en auth.py a la aplicación global
+from .routers.auth import limiter
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(CORSMiddleware, allow_origins=[o.strip() for o in settings.cors_origins.split(",") if o.strip()],
                    allow_methods=["*"], allow_headers=["*"])
 

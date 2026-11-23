@@ -49,7 +49,22 @@ export default function Dashboard({ can }) {
   async function escanear() { setEscaneando(true); try { await api("/scan", { method: "POST" }); } finally { setEscaneando(false); cargar(); } }
   async function resolver(id) { await api(`/alertas/${id}/resolver`, { method: "POST" }); cargar(); }
   async function eliminar(n) { if (confirm(`¿Eliminar ${n.nombre} y todo su historial?`)) { await api(`/dispositivos/${n.id}`, { method: "DELETE" }); cargar(); } }
-
+  async function forzarSobrecarga(n) {
+    const val = prompt(`[Simulador de Sobrecarga]\nIngresa el umbral crítico de CPU para ${n.nombre} (Ej: 2.0 para forzar alerta):`, "2.0");
+    if (!val || isNaN(val)) return;
+    try {
+      const reglas = await api(`/umbrales?dispositivo_id=${n.id}`);
+      const reglaCpu = reglas.find(r => r.parametro === "uso_cpu_pct");
+      if (reglaCpu) {
+        await api(`/umbrales/${reglaCpu.id}`, { method: "PUT", body: { valor_umbral: Number(val) } });
+      } else {
+        await api("/umbrales", { method: "POST", body: { dispositivo_id: n.id, parametro: "uso_cpu_pct", valor_umbral: Number(val), criticidad: "Crítica" } });
+      }
+      alert(`✅ Umbral de CPU actualizado a ${val}%. El motor asíncrono lo detectará en el próximo ciclo y enviará la alerta.`);
+      cargar();
+    } catch (e) { alert("Error: " + e.message); }
+  }
+  
   if (!d) return <div className="panel">{error ? <span className="err">{error}</span> : "Cargando…"}</div>;
 
   const series = d.nodos.filter((n) => n.historial.length).slice(0, 6).map((n) => ({
@@ -126,7 +141,12 @@ export default function Dashboard({ can }) {
                       <td>{n.uptime_24h == null ? "—" : `${n.uptime_24h.toFixed(1)}%`}</td>
                       <td className={c}><b><span className={"dot " + (n.estado === "CRÍTICO" ? "pulse" : "")} />{n.estado}</b></td>
                       <td className={"r " + (n.disponible === false ? "crit" : c)}><b>{n.disponible === false ? "TIMEOUT" : n.latencia_ms != null ? `${n.latencia_ms} ms` : "—"}</b></td>
-                      {can("CRUD_NODOS") && <td><button className="btn rd" title="Eliminar" onClick={() => eliminar(n)}>🗑️</button></td>}
+                      {can("CRUD_NODOS") && (
+<td style={{ display: "flex", gap: "6px", justifyContent: "flex-end" }}>
+    <button className="btn warn" title="Simular Sobrecarga de CPU" onClick={() => forzarSobrecarga(n)}>⚙️</button>
+    <button className="btn rd" title="Eliminar" onClick={() => eliminar(n)}>🗑️</button>
+  </td>
+)}
                     </tr>
                   );
                 })}

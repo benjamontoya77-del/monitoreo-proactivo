@@ -1,3 +1,4 @@
-# Changelog
-## [1.0.0-sprint2] - 2026-09-30
-- Motor de escaneo ICMP/SNMP/HTTP, motor de reglas, alertas Telegram/SMTP, RBAC+JWT, dashboard React, reportes SLA, auditoría.
+## [1.0.1] - 2026-10-29
+- Fix: fechas de alertas se mostraban 3 h adelantadas (UTC sin zona interpretado como local).
+- Fix: "Downtime est." se calcula sobre el período observado, no proyectado a toda la ventana.
+- Fix: desactivar una regla cierra su alerta abierta.
