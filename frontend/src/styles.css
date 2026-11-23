@@ -43,3 +43,15 @@ input[type=checkbox] { width:auto; margin-right:6px; }
 .login { max-width:340px; margin:14vh auto; }
 .chip { font-size:10px; padding:2px 8px; border-radius:99px; border:1px solid; font-weight:700; }
 .form-inline { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:8px; align-items:end; margin-bottom:12px; }
+
+.aviso { background:#1e293b; border:1px dashed #475569; border-radius:8px; padding:12px; font-size:12px; color:#cbd5e1; margin:8px 0 12px; }
+.hint { font-size:11px; color:var(--mut); margin:2px 0 8px; }
+
+/* Informe imprimible: Reportes SLA -> Imprimir / guardar PDF */
+@media print {
+  :root { --bg:#fff; --panel:#fff; --borde:#ccc; --txt:#000; --mut:#444; --ok:#047857; --warn:#b45309; --crit:#b91c1c; --cy:#0e7490; }
+  .no-print { display:none !important; }
+  body { background:#fff; color:#000; }
+  .panel, .bar { border-color:#ccc; break-inside:avoid; }
+  th { background:#eee; color:#000; }
+}

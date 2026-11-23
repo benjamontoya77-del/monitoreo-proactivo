@@ -68,7 +68,9 @@ CREATE TABLE alerta_log (
     descripcion VARCHAR(255) NOT NULL,
     fecha_hora_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     fecha_hora_resolucion TIMESTAMP NULL,
-    estado_alerta VARCHAR(50) DEFAULT 'ABIERTA'    -- ABIERTA | RESUELTA
+    estado_alerta VARCHAR(50) DEFAULT 'ABIERTA',    
+    fecha_hora_envio TIMESTAMP,
+    canal_envio VARCHAR(50)
 );
 CREATE INDEX idx_alerta_estado ON alerta_log(estado_alerta, dispositivo_id);
 

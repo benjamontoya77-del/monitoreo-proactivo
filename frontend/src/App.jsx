@@ -49,7 +49,7 @@ export default function App() {
 
   return (
     <div className="wrap">
-      <div className="bar">
+      <div className="bar no-print">
         <div>
           <h1>NOC — MONITOREO PROACTIVO Y ALERTA TEMPRANA</h1>
           <div className="sub mut">{user.username} · {user.rol}</div>

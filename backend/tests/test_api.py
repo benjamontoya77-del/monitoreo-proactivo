@@ -68,8 +68,9 @@ def test_ciclo_completo_falla_alerta_y_recuperacion(client, admin_headers, escan
     sla = client.get("/api/reportes/sla?dias=1", headers=admin_headers).json()
     fila = next(n for n in sla["nodos"] if n["dispositivo_id"] == disp_id)
     assert fila["incidentes"] == 1 and fila["muestras"] >= 3 and 0 < fila["uptime_pct"] < 100
-    assert client.get("/api/reportes/sla.csv", headers=admin_headers).text.startswith("nodo,ip")
-
+    assert "nodo;ip" in client.get("/api/reportes/sla.csv", headers=admin_headers).text
+    x = client.get("/api/reportes/sla.xlsx?dias=1&tz_offset_min=180", headers=admin_headers)
+    assert x.status_code == 200 and x.content[:2] == b"PK"
 
 def test_umbral_de_latencia_personalizado(client, admin_headers, escaner_falso):
     nodo = {**NODO, "nombre": "Switch_Core", "ip": "192.0.2.50", "tipo_dispositivo": "Switch"}
