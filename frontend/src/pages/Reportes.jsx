@@ -6,7 +6,9 @@ export default function Reportes() {
   const [sla, setSla] = useState(null);
   const [inc, setInc] = useState([]);
   const [error, setError] = useState("");
+  const [aviso, setAviso] = useState("");
   const [bajando, setBajando] = useState("");
+  const [enviando, setEnviando] = useState(false);
 
   useEffect(() => {
     api(`/reportes/sla?dias=${dias}`).then(setSla).catch((e) => setError(e.message));
@@ -14,12 +16,25 @@ export default function Reportes() {
   }, [dias]);
 
   async function bajar(tipo) {
-    setBajando(tipo); setError("");
+    setBajando(tipo); setError(""); setAviso("");
     try {
       if (tipo === "xlsx") await descargar(`/reportes/sla.xlsx?dias=${dias}&tz_offset_min=${new Date().getTimezoneOffset()}`, `informe_sla_${dias}d.xlsx`);
       else await descargar(`/reportes/sla.csv?dias=${dias}`, `sla_${dias}d.csv`);
     } catch (e) { setError(e.message); }
     setBajando("");
+  }
+
+  async function enviarCorreo() {
+    setEnviando(true); setError(""); setAviso("");
+    try {
+      const res = await api(`/reportes/enviar-correo?dias=${dias}&tz_offset_min=${new Date().getTimezoneOffset()}`, {
+        method: "POST",
+      });
+      setAviso(res.mensaje || `Informe enviado a ${res.destinatario}`);
+    } catch (e) {
+      setError(e.message);
+    }
+    setEnviando(false);
   }
 
   return (
@@ -33,11 +48,13 @@ export default function Reportes() {
               {[1, 7, 30, 90].map((d) => <option key={d} value={d}>Últimos {d} día(s)</option>)}
             </select>
             <button className="btn cy" disabled={!!bajando} onClick={() => bajar("xlsx")}>{bajando === "xlsx" ? "Generando…" : "📊 Descargar informe Excel"}</button>
+            <button className="btn" disabled={enviando} onClick={enviarCorreo}>{enviando ? "Enviando…" : "✉ Enviar a mi correo"}</button>
             <button className="btn" onClick={() => window.print()}>🖨 Imprimir / guardar PDF</button>
             <button className="btn" disabled={!!bajando} onClick={() => bajar("csv")} title="Datos en bruto, compatibles con Excel en español">⬇ CSV</button>
           </div>
         </div>
         {error && <div className="err">{error}</div>}
+        {aviso && <div className="ok" style={{ marginTop: 8 }}>{aviso}</div>}
         <div className="tbl-wrap"><table>
           <thead><tr><th>Nodo</th><th>IP</th><th>Muestras</th><th>Uptime</th><th>Downtime est.</th><th>Lat. prom.</th><th>Lat. máx.</th><th>Incid.</th><th>MTTR</th><th>SLA</th></tr></thead>
           <tbody>
