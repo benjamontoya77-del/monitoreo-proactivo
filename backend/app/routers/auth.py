@@ -43,10 +43,10 @@ async def login(request: Request, form: OAuth2PasswordRequestForm = Depends(), d
     if u.email:
         ip_origen = request.client.host if request.client else "desconocida"
         fecha_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-        asunto = f"Inicio de sesión detectado — {u.username} (Monitor Proactivo TI)"
+        asunto = f"Ingreso al Dashboard detectado — {u.username} (Monitor Proactivo TI)"
         cuerpo = (
             f"Hola {u.username},\n\n"
-            f"Se ha registrado un inicio de sesión en la plataforma NOC — Monitoreo Proactivo.\n\n"
+            f"Se ha registrado un inicio de sesión e ingreso al Dashboard en la plataforma NOC — Monitoreo Proactivo.\n\n"
             f"• Usuario: {u.username}\n"
             f"• Rol asignado: {u.rol.nombre_rol}\n"
             f"• Fecha y hora: {fecha_utc}\n"

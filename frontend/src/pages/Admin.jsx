@@ -102,13 +102,21 @@ function Usuarios() {
   const [f, setF] = useState({ username: "", email: "", password: "", rol_id: "" });
   const [err, setErr] = useState("");
   const [ok, setOk] = useState("");
+  const [creando, setCreando] = useState(false);
+
   const cargar = useCallback(async () => { setUs(await api("/usuarios")); setRoles(await api("/roles")); }, []);
   useEffect(() => { cargar(); }, [cargar]);
-  const set = (k) => (e) => { setF({ ...f, [k]: e.target.value }); setOk(""); };
+  const set = (k) => (e) => { setF({ ...f, [k]: e.target.value }); setOk(""); setErr(""); };
 
   function validar() {
-    if (f.username.trim().length < 3) return "El usuario debe tener al menos 3 caracteres.";
-    if (!EMAIL_RE.test(f.email)) return "Escribe un correo válido (ej.: nombre@empresa.cl).";
+    const userNorm = f.username.trim().toLowerCase();
+    const emailNorm = f.email.trim().toLowerCase();
+    if (userNorm.length < 3) return "El usuario debe tener al menos 3 caracteres.";
+    if (us.some((u) => u.username.toLowerCase() === userNorm))
+      return `No se puede registrar: el usuario "${f.username.trim()}" ya está registrado.`;
+    if (!EMAIL_RE.test(emailNorm)) return "Escribe un correo válido (ej.: nombre@empresa.cl).";
+    if (us.some((u) => u.email.toLowerCase() === emailNorm))
+      return `No se puede registrar: el correo "${emailNorm}" ya está registrado en otro usuario.`;
     if (f.password.length < 8) return "La contraseña debe tener al menos 8 caracteres.";
     if (!f.rol_id) return "Selecciona un rol.";
     return "";
@@ -117,12 +125,39 @@ function Usuarios() {
   const tocado = f.username || f.email || f.password;
 
   async function crear() {
+    const msgError = validar();
+    if (msgError) {
+      setErr(msgError);
+      setOk("");
+      return;
+    }
+
+    setCreando(true);
+    setErr("");
+    setOk("");
     try {
-      await api("/usuarios", { method: "POST", body: { ...f, username: f.username.trim(), rol_id: Number(f.rol_id) } });
-      setErr(""); setOk(`Usuario ${f.username.trim()} creado.`);
-      setF({ username: "", email: "", password: "", rol_id: "" }); cargar();
+      const username = f.username.trim();
+      const email = f.email.trim().toLowerCase();
+      await api("/usuarios", { method: "POST", body: { ...f, username, email, rol_id: Number(f.rol_id) } });
+      setOk(`Usuario ${username} creado correctamente y notificación enviada a ${email}.`);
+      setF({ username: "", email: "", password: "", rol_id: "" });
+      await cargar();
+    } catch (x) {
+      setErr(x.message || "No se pudo registrar el usuario.");
+    } finally {
+      setCreando(false);
+    }
+  }
+
+  async function eliminar(u) {
+    if (!confirm(`¿Eliminar definitivamente al usuario "${u.username}" (${u.email})? Si solo quieres suspenderlo temporalmente, desmarca la casilla Activo.`)) return;
+    try {
+      await api(`/usuarios/${u.id}`, { method: "DELETE" });
+      setErr(""); setOk(`Usuario ${u.username} eliminado.`);
+      cargar();
     } catch (x) { setErr(x.message); setOk(""); }
   }
+
   return (
     <div className="panel">
       <h2>Usuarios y roles (RBAC)</h2><p className="d">Contraseñas mínimo 8 caracteres · almacenadas con bcrypt</p>
@@ -131,16 +166,19 @@ function Usuarios() {
         <div><label>Correo</label><input value={f.email} onChange={set("email")} placeholder="tecnico1@empresa.cl" /></div>
         <div><label>Contraseña</label><input type="password" value={f.password} onChange={set("password")} autoComplete="new-password" /></div>
         <div><label>Rol</label><select value={f.rol_id} onChange={set("rol_id")}><option value="">Seleccionar…</option>{roles.map((r) => <option key={r.id} value={r.id}>{r.nombre_rol}</option>)}</select></div>
-        <button className="btn am" disabled={!!problema} title={problema} onClick={crear}>+ Crear</button>
+        <button className="btn am" disabled={creando} onClick={crear}>{creando ? "Registrando…" : "+ Crear"}</button>
       </div>
-      {tocado && problema && <div className="hint">{problema}</div>}
+      {tocado && problema && !err && <div className="hint">{problema}</div>}
       {err && <div className="err">{err}</div>}
       {ok && <div className="ok" style={{ fontSize: 12, marginTop: 8 }}>{ok}</div>}
       <div className="tbl-wrap"><table>
-        <thead><tr><th>Usuario</th><th>Correo</th><th>Rol</th><th>Activo</th></tr></thead>
+        <thead><tr><th>Usuario</th><th>Correo</th><th>Rol</th><th>Activo</th><th /></tr></thead>
         <tbody>{us.map((u) => (
           <tr key={u.id}><td><b>{u.username}</b></td><td className="mut">{u.email}</td><td>{u.rol}</td>
-            <td><input type="checkbox" checked={u.activo} onChange={async (e) => { try { await api(`/usuarios/${u.id}`, { method: "PATCH", body: { activo: e.target.checked } }); cargar(); } catch (x) { alert(x.message); } }} /></td></tr>))}</tbody>
+            <td><input type="checkbox" disabled={u.username.toLowerCase() === "admin"} checked={u.activo} onChange={async (e) => { try { await api(`/usuarios/${u.id}`, { method: "PATCH", body: { activo: e.target.checked } }); cargar(); } catch (x) { setErr(x.message); } }} /></td>
+            <td>{u.username.toLowerCase() !== "admin" && (
+              <button className="btn rd" title="Eliminar usuario definitivamente" onClick={() => eliminar(u)}>🗑️</button>
+            )}</td></tr>))}</tbody>
       </table></div>
     </div>
   );

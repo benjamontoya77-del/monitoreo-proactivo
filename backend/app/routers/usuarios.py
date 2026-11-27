@@ -1,5 +1,8 @@
+import asyncio
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,6 +11,7 @@ from ..deps import auditar, requiere
 from ..models import AuditoriaAcceso, Rol, Usuario
 from ..schemas import UsuarioActualizar, UsuarioCrear, UsuarioOut
 from ..security import hash_password
+from ..services.notifier import enviar_correo_usuario
 from .auth import usuario_out
 
 router = APIRouter(tags=["usuarios"])
@@ -27,18 +31,52 @@ async def listar(db: AsyncSession = Depends(get_db), _=Depends(requiere("GESTION
 @router.post("/usuarios", response_model=UsuarioOut, status_code=201)
 async def crear(datos: UsuarioCrear, request: Request, db: AsyncSession = Depends(get_db),
                 admin: Usuario = Depends(requiere("GESTIONAR_USUARIOS"))):
-    if not await db.get(Rol, datos.rol_id):
+    username = datos.username.strip()
+    email = datos.email.strip().lower()
+
+    rol = await db.get(Rol, datos.rol_id)
+    if not rol:
         raise HTTPException(404, "Rol no encontrado")
-    u = Usuario(username=datos.username, email=datos.email, rol_id=datos.rol_id,
+
+    if await db.scalar(select(Usuario).where(func.lower(Usuario.username) == username.lower())):
+        raise HTTPException(409, f"No se puede registrar: el usuario '{username}' ya está registrado.")
+
+    if await db.scalar(select(Usuario).where(func.lower(Usuario.email) == email)):
+        raise HTTPException(409, f"No se puede registrar: el correo '{email}' ya está registrado.")
+
+    u = Usuario(username=username, email=email, rol_id=datos.rol_id,
                 password_hash=hash_password(datos.password))
     db.add(u)
     try:
         await db.commit()
     except IntegrityError:
         await db.rollback()
-        raise HTTPException(409, "Usuario o correo ya existe")
+        raise HTTPException(409, "No se puede registrar: el usuario o correo ya existe.")
     await db.refresh(u)
-    await auditar(db, admin, "USUARIO_CREADO", u.username, request)
+    await auditar(db, admin, "USUARIO_CREADO", f"{u.username} ({u.email})", request)
+
+    if u.email:
+        fecha_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        asunto = f"Cuenta registrada correctamente — {u.username} (Monitor Proactivo TI)"
+        cuerpo = (
+            f"Hola {u.username},\n\n"
+            f"Tu correo electrónico ha sido registrado correctamente en la plataforma NOC — Monitoreo Proactivo.\n\n"
+            f"• Usuario asignado: {u.username}\n"
+            f"• Correo registrado: {u.email}\n"
+            f"• Rol asignado: {rol.nombre_rol}\n"
+            f"• Registrado por: {admin.username}\n"
+            f"• Fecha de registro: {fecha_utc}\n\n"
+            f"Ya puedes ingresar al Dashboard con las credenciales asignadas por el Administrador TI."
+        )
+        asyncio.create_task(
+            enviar_correo_usuario(
+                destinatario=u.email,
+                asunto=asunto,
+                texto=cuerpo,
+                silencioso=True,
+            )
+        )
+
     return usuario_out(u)
 
 
@@ -50,6 +88,8 @@ async def actualizar(uid: int, datos: UsuarioActualizar, request: Request, db: A
         raise HTTPException(404, "Usuario no encontrado")
     if uid == admin.id and datos.activo is False:
         raise HTTPException(400, "No puedes desactivar tu propia cuenta")
+    if u.username.lower() == "admin" and datos.activo is False:
+        raise HTTPException(400, "No se puede desactivar la cuenta principal admin")
     if datos.activo is not None:
         u.activo = datos.activo
     if datos.rol_id is not None:
@@ -62,6 +102,22 @@ async def actualizar(uid: int, datos: UsuarioActualizar, request: Request, db: A
     await db.refresh(u)
     await auditar(db, admin, "USUARIO_EDITADO", u.username, request)
     return usuario_out(u)
+
+
+@router.delete("/usuarios/{uid}", status_code=204)
+async def eliminar(uid: int, request: Request, db: AsyncSession = Depends(get_db),
+                   admin: Usuario = Depends(requiere("GESTIONAR_USUARIOS"))):
+    u = await db.get(Usuario, uid)
+    if not u:
+        raise HTTPException(404, "Usuario no encontrado")
+    if uid == admin.id:
+        raise HTTPException(400, "No puedes eliminar tu propia cuenta activa")
+    if u.username.lower() == "admin":
+        raise HTTPException(400, "No se puede eliminar la cuenta principal admin")
+    eliminado = f"{u.username} ({u.email})"
+    await db.delete(u)
+    await db.commit()
+    await auditar(db, admin, "USUARIO_ELIMINADO", eliminado, request)
 
 
 @router.get("/auditoria")
